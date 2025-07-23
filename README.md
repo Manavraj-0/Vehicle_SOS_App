@@ -32,14 +32,16 @@ Before you begin, ensure you have the following installed on your system:
 If you received this project as a Git repository, clone it to your local machine:
 
 ```bash
-git clone <repository_url>
-cd vehicle_sos_app
+git clone https://github.com/Manavraj-0/Vehicle_SOS_App.git
+cd Vehicle_SOS_App/App/V1/vehicle_sos_app
 ```
 
 If you received it as a folder, navigate to the project directory:
 
 ```bash
-cd D:\Manav\uzeless projectz for clg\Vehicle Emergency SOS System\App\V1\vehicle_sos_app
+```bash
+cd vehicle_sos_app
+```
 ```
 
 ### 3. Install Dependencies
