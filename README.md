@@ -39,9 +39,7 @@ cd Vehicle_SOS_App/App/V1/vehicle_sos_app
 If you received it as a folder, navigate to the project directory:
 
 ```bash
-```bash
 cd vehicle_sos_app
-```
 ```
 
 ### 3. Install Dependencies
