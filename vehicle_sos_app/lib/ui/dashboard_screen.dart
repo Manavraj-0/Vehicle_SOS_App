@@ -364,19 +364,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final results = snapshot.data!;
+              var results = snapshot.data!;
+              final esp32Devices = results.where((r) => r.advertisementData.advName == 'ESP32-SOS').toList();
+              if (esp32Devices.isNotEmpty) {
+                results = esp32Devices;
+              }
               return SizedBox(
                 width: double.maxFinite,
                 child: ListView.builder(
                   itemCount: results.length,
                   itemBuilder: (context, index) {
                     final result = results[index];
-                    return ListTile(
-                      title: Text(
-                        result.device.platformName.isNotEmpty
+                    final deviceName = result.advertisementData.advName.isNotEmpty
+                        ? result.advertisementData.advName
+                        : result.device.platformName.isNotEmpty
                             ? result.device.platformName
-                            : 'Unknown Device',
-                      ),
+                            : 'Unknown Device';
+                    return ListTile(
+                      title: Text(deviceName),
                       subtitle: Text(result.device.remoteId.toString()),
                       onTap: () {
                         _bluetoothService.connect(result.device);
