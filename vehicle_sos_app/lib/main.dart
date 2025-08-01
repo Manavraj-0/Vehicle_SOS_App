@@ -1,7 +1,6 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:vehicle_sos_app/services/storage_service.dart';
 import 'package:vehicle_sos_app/ui/dashboard_screen.dart';
 import 'package:vehicle_sos_app/ui/alerts_screen.dart';
 import 'package:vehicle_sos_app/ui/contacts_screen.dart';
@@ -45,13 +44,7 @@ class _MainScreenState extends State<MainScreen> {
   double _systemBattery = 92.0;
   bool _isEmergencyMode = false;
   String _vehicleLocation = 'Unknown Location';
-  List<Map<String, String>> _emergencyContacts = [
-    {'id': '1', 'name': 'John Doe', 'phone': '+1234567890', 'relation': 'Family', 'removable': 'true'},
-    {'id': '2', 'name': 'Jane Smith', 'phone': '+0987654321', 'relation': 'Emergency', 'removable': 'true'},
-    {'id': '3', 'name': 'Police', 'phone': '911', 'relation': 'Emergency Service', 'removable': 'false'},
-    {'id': '4', 'name': 'Ambulance', 'phone': '911', 'relation': 'Emergency Service', 'removable': 'false'},
-    {'id': '5', 'name': 'Fire Department', 'phone': '911', 'relation': 'Emergency Service', 'removable': 'false'},
-  ];
+  List<Map<String, String>> _emergencyContacts = [];
   List<Map<String, String>> _alerts = [
     {'id': '1', 'type': 'accident', 'location': 'Highway 101', 'time': '2 mins ago', 'status': 'active'},
     {'id': '2', 'type': 'fire', 'location': 'Main Street', 'time': '1 hour ago', 'status': 'resolved'}
@@ -62,6 +55,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    _loadContacts();
     _batteryTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
       setState(() {
         _systemBattery = ((_systemBattery + ( (0.5 - (DateTime.now().millisecondsSinceEpoch % 1000) / 1000) * 0.5))).clamp(88.0, 100.0);
@@ -76,15 +70,37 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  Future<void> _loadContacts() async {
+    final contacts = await StorageService.instance.loadContacts();
+    if (contacts.isEmpty) {
+      setState(() {
+        _emergencyContacts = [
+          {'id': '1', 'name': 'John Doe', 'phone': '+1234567890', 'relation': 'Family', 'removable': 'true'},
+          {'id': '2', 'name': 'Jane Smith', 'phone': '+0987654321', 'relation': 'Emergency', 'removable': 'true'},
+          {'id': '3', 'name': 'Police', 'phone': '911', 'relation': 'Emergency Service', 'removable': 'false'},
+          {'id': '4', 'name': 'Ambulance', 'phone': '911', 'relation': 'Emergency Service', 'removable': 'false'},
+          {'id': '5', 'name': 'Fire Department', 'phone': '911', 'relation': 'Emergency Service', 'removable': 'false'},
+        ];
+      });
+      await StorageService.instance.saveContacts(_emergencyContacts);
+    } else {
+      setState(() {
+        _emergencyContacts = contacts;
+      });
+    }
+  }
+
   Future<void> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location services are disabled.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location services are disabled.')),
+        );
+      }
       return Future.error('Location services are disabled.');
     }
 
@@ -92,17 +108,21 @@ class _MainScreenState extends State<MainScreen> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permissions are denied')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are denied')),
+          );
+        }
         return Future.error('Location permissions are denied');
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permissions are permanently denied, we cannot request permissions.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permissions are permanently denied, we cannot request permissions.')),
+        );
+      }
       return Future.error(
           'Location permissions are permanently denied, we cannot request permissions.');
     }
@@ -115,9 +135,11 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _launchUrl(String url) async {
     if (!await launchUrl(Uri.parse(url))) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not launch $url')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not launch $url')),
+        );
+      }
     }
   }
 
@@ -192,6 +214,7 @@ class _MainScreenState extends State<MainScreen> {
         'removable': 'true'
       });
     });
+    StorageService.instance.saveContacts(_emergencyContacts);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('👤 New Contact Added!\nPlease edit the contact details.')),
     );
@@ -206,12 +229,14 @@ class _MainScreenState extends State<MainScreen> {
         _emergencyContacts[index]['relation'] = relation;
       }
     });
+    StorageService.instance.saveContacts(_emergencyContacts);
   }
 
   void _deleteContact(String id) {
     setState(() {
       _emergencyContacts.removeWhere((contact) => contact['id'] == id && contact['removable'] == 'true');
     });
+    StorageService.instance.saveContacts(_emergencyContacts);
   }
 
   void _callContact(BuildContext context, Map<String, String> contact) async {

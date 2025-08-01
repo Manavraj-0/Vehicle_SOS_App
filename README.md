@@ -33,12 +33,18 @@ If you received this project as a Git repository, clone it to your local machine
 
 ```bash
 git clone https://github.com/Manavraj-0/Vehicle_SOS_App.git
-cd Vehicle_SOS_App/App/V1/vehicle_sos_app
+cd vehicle_sos_app
 ```
 
 If you received it as a folder, navigate to the project directory:
 
 ```bash
+```bash
+cd vehicle_sos_app
+```
+```
+
+###
 cd vehicle_sos_app
 ```
 

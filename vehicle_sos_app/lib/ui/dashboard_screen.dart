@@ -1,8 +1,9 @@
-
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:vehicle_sos_app/services/bluetooth_service.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final bool isConnected;
   final double systemBattery;
   final bool isEmergencyMode;
@@ -27,6 +28,13 @@ class DashboardScreen extends StatelessWidget {
   });
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final AppBluetoothService _bluetoothService = FlutterBluePlusService.instance;
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SingleChildScrollView(
@@ -49,10 +57,10 @@ class DashboardScreen extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             'Vehicle SOS',
                             style: TextStyle(
@@ -113,46 +121,60 @@ class DashboardScreen extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
+      child: StreamBuilder<BluetoothConnectionState>(
+        stream: _bluetoothService.connectionState,
+        initialData: BluetoothConnectionState.disconnected,
+        builder: (context, snapshot) {
+          final isConnected =
+              snapshot.data == BluetoothConnectionState.connected;
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              GestureDetector(
-                onTap: toggleConnection,
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: isConnected ? Colors.green : Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'SOS Device Status',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Icon(
-                LucideIcons.bluetooth,
-                color: isConnected ? Colors.blue : Colors.grey,
-              ),
-              const SizedBox(width: 16),
               Row(
                 children: [
-                  const Icon(LucideIcons.battery, color: Colors.green),
-                  const SizedBox(width: 4),
-                  Text('${systemBattery.toInt()}%'),
+                  GestureDetector(
+                    onTap: () {
+                      if (isConnected) {
+                        _bluetoothService.disconnect();
+                      } else {
+                        _showDeviceScanDialog();
+                      }
+                    },
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: isConnected ? Colors.green : Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'SOS Device Status',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Icon(
+                    LucideIcons.bluetooth,
+                    color: isConnected ? Colors.blue : Colors.grey,
+                  ),
+                  const SizedBox(width: 16),
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.battery, color: Colors.green),
+                      const SizedBox(width: 4),
+                      Text('${widget.systemBattery.toInt()}%'),
+                    ],
+                  ),
                 ],
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -165,15 +187,45 @@ class DashboardScreen extends StatelessWidget {
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
       children: [
-        _buildStatusCard(LucideIcons.car, 'Vehicle Status', 'Protected', Colors.green, Colors.green.shade50),
-        _buildStatusCard(LucideIcons.map_pin, 'GPS Signal', 'Strong', Colors.blue, Colors.blue.shade50),
-        _buildStatusCard(LucideIcons.activity, 'Sensors', 'All Active', Colors.purple, Colors.purple.shade50),
-        _buildStatusCard(LucideIcons.bell, 'Alerts', alertsCount.toString(), Colors.orange, Colors.orange.shade50),
+        _buildStatusCard(
+          LucideIcons.car,
+          'Vehicle Status',
+          'Protected',
+          Colors.green,
+          Colors.green.shade50,
+        ),
+        _buildStatusCard(
+          LucideIcons.map_pin,
+          'GPS Signal',
+          'Strong',
+          Colors.blue,
+          Colors.blue.shade50,
+        ),
+        _buildStatusCard(
+          LucideIcons.activity,
+          'Sensors',
+          'All Active',
+          Colors.purple,
+          Colors.purple.shade50,
+        ),
+        _buildStatusCard(
+          LucideIcons.bell,
+          'Alerts',
+          widget.alertsCount.toString(),
+          Colors.orange,
+          Colors.orange.shade50,
+        ),
       ],
     );
   }
 
-  Widget _buildStatusCard(IconData icon, String title, String value, Color color, Color bgColor) {
+  Widget _buildStatusCard(
+    IconData icon,
+    String title,
+    String value,
+    Color color,
+    Color bgColor,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -189,8 +241,18 @@ class DashboardScreen extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(color: Colors.black54, fontSize: 14)),
-              Text(value, style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold)),
+              Text(
+                title,
+                style: const TextStyle(color: Colors.black54, fontSize: 14),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
         ],
@@ -229,10 +291,30 @@ class DashboardScreen extends StatelessWidget {
             mainAxisSpacing: 16,
             childAspectRatio: 2.5,
             children: [
-              _buildQuickActionButton(LucideIcons.phone, 'Emergency Call', isEmergencyMode ? Colors.red.shade700 : Colors.red, handleEmergencyCall),
-              _buildQuickActionButton(LucideIcons.message_square, 'Send Alert', Colors.blue, handleSendAlert),
-              _buildQuickActionButton(LucideIcons.navigation, 'Share Location', Colors.green, handleShareLocation),
-              _buildQuickActionButton(LucideIcons.map, 'View Map', Colors.purple, handleViewMap),
+              _buildQuickActionButton(
+                LucideIcons.phone,
+                'Emergency Call',
+                widget.isEmergencyMode ? Colors.red.shade700 : Colors.red,
+                widget.handleEmergencyCall,
+              ),
+              _buildQuickActionButton(
+                LucideIcons.message_square,
+                'Send Alert',
+                Colors.blue,
+                widget.handleSendAlert,
+              ),
+              _buildQuickActionButton(
+                LucideIcons.navigation,
+                'Share Location',
+                Colors.green,
+                widget.handleShareLocation,
+              ),
+              _buildQuickActionButton(
+                LucideIcons.map,
+                'View Map',
+                Colors.purple,
+                widget.handleViewMap,
+              ),
             ],
           ),
         ],
@@ -240,15 +322,18 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActionButton(IconData icon, String label, Color color, VoidCallback onPressed) {
+  Widget _buildQuickActionButton(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onPressed,
+  ) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(vertical: 12),
       ),
       child: Row(
@@ -259,6 +344,61 @@ class DashboardScreen extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 14)),
         ],
       ),
+    );
+  }
+
+  void _showDeviceScanDialog() {
+    _bluetoothService.startScan();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Scan for Devices'),
+          content: StreamBuilder<List<ScanResult>>(
+            stream: _bluetoothService.scanResults,
+            initialData: const [],
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error}');
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final results = snapshot.data!;
+              return SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  itemCount: results.length,
+                  itemBuilder: (context, index) {
+                    final result = results[index];
+                    return ListTile(
+                      title: Text(
+                        result.device.platformName.isNotEmpty
+                            ? result.device.platformName
+                            : 'Unknown Device',
+                      ),
+                      subtitle: Text(result.device.remoteId.toString()),
+                      onTap: () {
+                        _bluetoothService.connect(result.device);
+                        Navigator.of(context).pop();
+                      },
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _bluetoothService.stopScan();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

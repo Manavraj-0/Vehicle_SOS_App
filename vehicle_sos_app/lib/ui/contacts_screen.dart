@@ -64,21 +64,23 @@ class ContactsScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                backgroundColor: Colors.blue,
-                child: Icon(LucideIcons.user, color: Colors.white),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(contact['name']!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text(contact['relation']!, style: const TextStyle(color: Colors.black54)),
-                ],
-              ),
-            ],
+          Expanded(
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: Colors.blue,
+                  child: Icon(LucideIcons.user, color: Colors.white),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(contact['name']!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(contact['relation']!, style: const TextStyle(color: Colors.black54)),
+                  ],
+                ),
+              ],
+            ),
           ),
           Row(
             children: [
