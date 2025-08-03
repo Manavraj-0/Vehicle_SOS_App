@@ -1,6 +1,7 @@
 #local files for context
 ../GEMINI.md
 ../errors.txt
+../arduino.txt
 
 # Miscellaneous
 *.class

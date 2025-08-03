@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -33,6 +34,30 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final AppBluetoothService _bluetoothService = FlutterBluePlusService.instance;
+  SystemData _systemData = SystemData(
+    battery: 0,
+    isEmergency: false,
+    gpsSignal: false,
+    sensorStatus: false,
+    alertsCount: 0,
+  );
+  StreamSubscription? _dataSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _dataSubscription = _bluetoothService.systemData.listen((data) {
+      setState(() {
+        _systemData = data;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _dataSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,43 +157,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Row(
                 children: [
-                  GestureDetector(
-                    onTap: () {
-                      if (isConnected) {
-                        _bluetoothService.disconnect();
-                      } else {
-                        _showDeviceScanDialog();
-                      }
-                    },
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: isConnected ? Colors.green : Colors.red,
-                        shape: BoxShape.circle,
-                      ),
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: isConnected ? Colors.green : Colors.red,
+                      shape: BoxShape.circle,
                     ),
                   ),
                   const SizedBox(width: 12),
                   const Text(
-                    'SOS Device Status',
+                    'SOS Device',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               Row(
                 children: [
-                  Icon(
-                    LucideIcons.bluetooth,
-                    color: isConnected ? Colors.blue : Colors.grey,
-                  ),
-                  const SizedBox(width: 16),
-                  Row(
-                    children: [
-                      const Icon(LucideIcons.battery, color: Colors.green),
-                      const SizedBox(width: 4),
-                      Text('${widget.systemBattery.toInt()}%'),
-                    ],
+                  if (isConnected)
+                    Row(
+                      children: [
+                        const Icon(LucideIcons.battery, color: Colors.green),
+                        const SizedBox(width: 4),
+                        Text('${_systemData.battery}%'),
+                        const SizedBox(width: 16),
+                      ],
+                    ),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (isConnected) {
+                        _bluetoothService.disconnect();
+                      } else {
+                        _showDeviceScanDialog();
+                      }
+                    },
+                    child: Text(isConnected ? 'Disconnect' : 'Connect'),
                   ),
                 ],
               ),
@@ -190,28 +213,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _buildStatusCard(
           LucideIcons.car,
           'Vehicle Status',
-          'Protected',
-          Colors.green,
-          Colors.green.shade50,
+          _systemData.isEmergency ? 'SOS Active' : 'Protected',
+          _systemData.isEmergency ? Colors.red : Colors.green,
+          _systemData.isEmergency
+              ? Colors.red.shade50
+              : Colors.green.shade50,
         ),
         _buildStatusCard(
           LucideIcons.map_pin,
           'GPS Signal',
-          'Strong',
-          Colors.blue,
-          Colors.blue.shade50,
+          _systemData.gpsSignal ? 'Strong' : 'Weak',
+          _systemData.gpsSignal ? Colors.blue : Colors.grey,
+          _systemData.gpsSignal ? Colors.blue.shade50 : Colors.grey.shade50,
         ),
         _buildStatusCard(
           LucideIcons.activity,
           'Sensors',
-          'All Active',
-          Colors.purple,
-          Colors.purple.shade50,
+          _systemData.sensorStatus ? 'All Active' : 'Inactive',
+          _systemData.sensorStatus ? Colors.purple : Colors.grey,
+          _systemData.sensorStatus
+              ? Colors.purple.shade50
+              : Colors.grey.shade50,
         ),
         _buildStatusCard(
           LucideIcons.bell,
           'Alerts',
-          widget.alertsCount.toString(),
+          _systemData.alertsCount.toString(),
           Colors.orange,
           Colors.orange.shade50,
         ),
@@ -364,22 +391,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              var results = snapshot.data!;
-              final esp32Devices = results.where((r) => r.advertisementData.advName == 'ESP32-SOS').toList();
-              if (esp32Devices.isNotEmpty) {
-                results = esp32Devices;
-              }
+              final serviceUuid = Guid("12345678-1234-1234-1234-1234567890ab");
+              final results = snapshot.data!
+                  .where((r) => r.advertisementData.serviceUuids.contains(serviceUuid))
+                  .toList();
               return SizedBox(
                 width: double.maxFinite,
                 child: ListView.builder(
                   itemCount: results.length,
                   itemBuilder: (context, index) {
                     final result = results[index];
-                    final deviceName = result.advertisementData.advName.isNotEmpty
-                        ? result.advertisementData.advName
-                        : result.device.platformName.isNotEmpty
-                            ? result.device.platformName
-                            : 'Unknown Device';
+                    final deviceName =
+                        result.advertisementData.advName.isNotEmpty
+                            ? result.advertisementData.advName
+                            : result.device.platformName.isNotEmpty
+                                ? result.device.platformName
+                                : 'Unknown Device';
                     return ListTile(
                       title: Text(deviceName),
                       subtitle: Text(result.device.remoteId.toString()),

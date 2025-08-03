@@ -1,12 +1,28 @@
 import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+class SystemData {
+  final int battery;
+  final bool isEmergency;
+  final bool gpsSignal;
+  final bool sensorStatus;
+  final int alertsCount;
+
+  SystemData({
+    required this.battery,
+    required this.isEmergency,
+    required this.gpsSignal,
+    required this.sensorStatus,
+    required this.alertsCount,
+  });
+}
+
 abstract class AppBluetoothService {
   Stream<bool> get isScanning;
   Stream<List<ScanResult>> get scanResults;
   Stream<BluetoothConnectionState> get connectionState;
   Stream<BluetoothDevice?> get connectedDevice;
-  Stream<String> get receivedData;
+  Stream<SystemData> get systemData;
 
   Future<void> startScan();
   Future<void> stopScan();
@@ -19,7 +35,7 @@ class FlutterBluePlusService implements AppBluetoothService {
   FlutterBluePlusService._(); // private constructor
   static final instance = FlutterBluePlusService._();
 
-  final StreamController<String> _receivedDataController = StreamController<String>.broadcast();
+  final StreamController<SystemData> _systemDataController = StreamController<SystemData>.broadcast();
   final StreamController<BluetoothDevice?> _connectedDeviceController = StreamController<BluetoothDevice?>.broadcast();
   BluetoothDevice? _connectedDevice;
   StreamSubscription<List<int>>? _valueSubscription;
@@ -39,7 +55,7 @@ class FlutterBluePlusService implements AppBluetoothService {
   Stream<BluetoothDevice?> get connectedDevice => _connectedDeviceController.stream;
 
   @override
-  Stream<String> get receivedData => _receivedDataController.stream;
+  Stream<SystemData> get systemData => _systemDataController.stream;
 
   @override
   Future<void> startScan() async {
@@ -70,13 +86,30 @@ class FlutterBluePlusService implements AppBluetoothService {
   Future<void> _discoverServices() async {
     if (_connectedDevice == null) return;
     final services = await _connectedDevice!.discoverServices();
+    final serviceUuid = Guid("12345678-1234-1234-1234-1234567890ab");
+    final characteristicUuid = Guid("abcd1234-5678-90ab-cdef-1234567890ab");
+
     for (final service in services) {
-      for (final characteristic in service.characteristics) {
-        if (characteristic.properties.notify) {
-          await characteristic.setNotifyValue(true);
-          _valueSubscription = characteristic.value.listen((value) {
-            _receivedDataController.add(String.fromCharCodes(value));
-          });
+      if (service.uuid == serviceUuid) {
+        for (final characteristic in service.characteristics) {
+          if (characteristic.uuid == characteristicUuid &&
+              characteristic.properties.notify) {
+            await characteristic.setNotifyValue(true);
+            _valueSubscription = characteristic.value.listen((value) {
+              final dataString = String.fromCharCodes(value);
+              final parts = dataString.split(',');
+              if (parts.length == 5) {
+                final systemData = SystemData(
+                  battery: int.tryParse(parts[0]) ?? 0,
+                  isEmergency: (int.tryParse(parts[1]) ?? 0) == 1,
+                  gpsSignal: (int.tryParse(parts[2]) ?? 0) == 1,
+                  sensorStatus: (int.tryParse(parts[3]) ?? 0) == 1,
+                  alertsCount: int.tryParse(parts[4]) ?? 0,
+                );
+                _systemDataController.add(systemData);
+              }
+            });
+          }
         }
       }
     }
